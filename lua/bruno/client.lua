@@ -1,19 +1,28 @@
+local curl = require("plenary.curl")
+
+local utils = require("bruno.utils")
+
 local M = {}
 
-local parser = require("bruno.parser")
+---An HTTP request
+---@class Request
+---@field url string: the url to send the request to
+---@field method string: the method to use
+---@field headers table?: the headers to send
+---@field body string?: the body to send
+---@field query table?: the query to send
+---@field form table?: the form to send
+---@field auth table?: the auth to use
+Request = {}
 
-local P = function(v)
-	print(vim.inspect(v))
-	return v
-end
+-- auth         = "Basic request auth, 'user:pass', or {"user", "pass"}" (string/array)
 
-local T = function(node)
-	P(vim.treesitter.get_node_text(node, 0))
-end
-
-function M.request()
-	local http_block = parser.get_http_block()
-	T(http_block)
+---Sends a request
+---@param request Request: the request to send
+---@return table: the response
+function M.request(request)
+	utils.P(request)
+	return curl.request(request)
 end
 
 return M
