@@ -15,7 +15,8 @@ local M = {}
 ---@field auth table?: the auth to use
 Request = {}
 
--- auth         = "Basic request auth, 'user:pass', or {"user", "pass"}" (string/array)
+-- curl options
+-- auth = "Basic request auth, 'user:pass', or {"user", "pass"}" (string/array)
 
 ---Sends a request
 ---@param request Request: the request to send

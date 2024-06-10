@@ -13,6 +13,8 @@ local function request()
 		method = raw.http.method,
 		body = raw.body,
 		form = raw.form,
+		headers = raw.headers,
+		query = raw.query,
 	}
 
 	-- TODO: parse auth block and configure headers

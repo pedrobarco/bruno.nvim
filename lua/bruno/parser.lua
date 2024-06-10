@@ -1,7 +1,5 @@
 local M = {}
 
-local utils = require("bruno.utils")
-
 ---Returns the text of a node
 ---@param node TSNode: the node to get the text for
 ---@return string: the text of the node
@@ -62,6 +60,23 @@ local function parse_text_block_node(node)
 	return get_node_text(text_node)
 end
 
+---Parses a meta block
+---@return table|nil: the parsed meta block
+function M.parse_meta_block()
+	local query = vim.treesitter.query.parse("bru", "(meta) @block")
+	local meta_node = find_first(query)
+	if meta_node == nil then
+		return nil
+	end
+
+	local dict_node = meta_node:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	return parse_dictionary_node(dict_node)
+end
+
 ---Parses an http block
 ---@return table|nil: the parsed http block
 function M.parse_http_block()
@@ -108,11 +123,104 @@ function M.parse_body_block()
 	return parse_text_block_node(content_node)
 end
 
+---Parses an auth block
+---@return table|nil: the parsed auth block
+function M.parse_auth_block()
+	local query = vim.treesitter.query.parse("bru", "(auths (_) @block)")
+	local auth_block = find_first(query)
+	if auth_block == nil then
+		return nil
+	end
+
+	local keyword_node = auth_block:named_child(0)
+	if keyword_node == nil then
+		return nil
+	end
+
+	local dict_node = auth_block:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	local dict = parse_dictionary_node(dict_node)
+	dict.auth_type = get_node_text(keyword_node)
+
+	return dict
+end
+
+---Parses a headers block
+---@return table|nil: the parsed headers block
+function M.parse_headers_block()
+	local query = vim.treesitter.query.parse("bru", "(headers) @block")
+	local headers_node = find_first(query)
+	if headers_node == nil then
+		return nil
+	end
+
+	local dict_node = headers_node:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	return parse_dictionary_node(dict_node)
+end
+
+---Parses a query block
+---@return table|nil: the parsed query block
+function M.parse_query_block()
+	local query = vim.treesitter.query.parse("bru", "(query) @block")
+	local query_node = find_first(query)
+	if query_node == nil then
+		return nil
+	end
+
+	local dict_node = query_node:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	return parse_dictionary_node(dict_node)
+end
+
+function M.parse_path_params_block()
+	local query = vim.treesitter.query.parse("bru", "(params (params_path) @block)")
+	local query_node = find_first(query)
+	if query_node == nil then
+		return nil
+	end
+
+	local dict_node = query_node:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	return parse_dictionary_node(dict_node)
+end
+
+function M.parse_query_params_block()
+	local query = vim.treesitter.query.parse("bru", "(params (params_query) @block)")
+	local query_node = find_first(query)
+	if query_node == nil then
+		return nil
+	end
+
+	local dict_node = query_node:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	return parse_dictionary_node(dict_node)
+end
+
 ---An HTTP request
 ---@class BruRequest
+---@field meta table: the meta block
 ---@field http table: the http block
 ---@field body string|nil: the body block
 ---@field form table|nil: the body form block
+---@field headers table|nil: the headers block
+---@field query table|nil: the query block
+---@field auth table|nil: the auth block
 BrunoRequest = {}
 
 ---Parses a request
@@ -120,11 +228,16 @@ BrunoRequest = {}
 function M.parse_request()
 	local request = {}
 
+	local meta = M.parse_meta_block()
+	if meta == nil then
+		error("No meta block found")
+	end
+	request.meta = meta
+
 	local http = M.parse_http_block()
 	if http == nil then
 		error("No http block found")
 	end
-
 	request.http = http
 
 	local body = M.parse_body_block()
@@ -132,6 +245,26 @@ function M.parse_request()
 		request.form = body
 	elseif type(body) == "string" then
 		request.body = body
+	end
+
+	request.headers = M.parse_headers_block()
+	request.query = M.parse_query_block()
+	request.auth = M.parse_auth_block()
+
+	local path_params = M.parse_path_params_block()
+	if path_params ~= nil then
+		for k, v in pairs(path_params) do
+			request.http.url = request.http.url:gsub(":" .. k, v)
+		end
+	end
+
+	local query_params = M.parse_query_params_block()
+	if query_params ~= nil then
+		for k, v in pairs(query_params) do
+			if request.query[k] ~= nil then
+				request.query[k] = request.query[k]:gsub(":" .. k, v)
+			end
+		end
 	end
 
 	return request
