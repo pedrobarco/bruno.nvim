@@ -16,6 +16,13 @@ local function get_root_node(bufnr)
 	return tree:root()
 end
 
+---Checks if a key is disabled
+---@param key string: the key to check
+---@return boolean: whether the key is disabled
+local function is_key_disabled(key)
+	return string.sub(key, 1, 1) == "~"
+end
+
 ---Finds the first node that matches the query
 ---@param query vim.treesitter.Query: the query to run
 ---@param node TSNode?: the node to start the search from
@@ -39,10 +46,14 @@ end
 local function parse_dictionary_node(node)
 	local dict = {}
 	for _, pair in ipairs(node:named_children()) do
-		local key = pair:named_child(0)
-		local value = pair:named_child(1)
-		if key ~= nil and value ~= nil then
-			dict[get_node_text(key)] = get_node_text(value)
+		local key_node = pair:named_child(0)
+		local value_node = pair:named_child(1)
+		if key_node ~= nil and value_node ~= nil then
+			local key = get_node_text(key_node)
+			local value = get_node_text(value_node)
+			if not is_key_disabled(key) then
+				dict[key] = value
+			end
 		end
 	end
 	return dict
