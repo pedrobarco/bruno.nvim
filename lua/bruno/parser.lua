@@ -71,8 +71,11 @@ local function parse_text_block_node(node)
 	return get_node_text(text_node)
 end
 
+---@alias BruRequestMeta table
+BruRequestMeta = {}
+
 ---Parses a meta block
----@return table|nil: the parsed meta block
+---@return BruRequestMeta|nil: the parsed meta block
 function M.parse_meta_block()
 	local query = vim.treesitter.query.parse("bru", "(meta) @block")
 	local meta_node = find_first(query)
@@ -88,8 +91,13 @@ function M.parse_meta_block()
 	return parse_dictionary_node(dict_node)
 end
 
+---@class BruRequestHttp
+---@field method string: the content type of the body
+---@field data table: the data of the body
+BruRequestHttp = {}
+
 ---Parses an http block
----@return table|nil: the parsed http block
+---@return BruRequestHttp|nil: the parsed http block
 function M.parse_http_block()
 	local query = vim.treesitter.query.parse("bru", "(http) @block")
 	local http_node = find_first(query)
@@ -107,18 +115,31 @@ function M.parse_http_block()
 		return nil
 	end
 
-	local dict = parse_dictionary_node(dict_node)
-	dict.method = get_node_text(method_node)
+	---@type BruRequestHttp
+	local http = {
+		method = get_node_text(method_node),
+		data = parse_dictionary_node(dict_node),
+	}
 
-	return dict
+	return http
 end
 
+---@class BruRequestBody
+---@field type string: the content type of the body
+---@field data string|table: the data of the body
+BruRequestBody = {}
+
 ---Parses a body block
----@return string|table|nil: the parsed body block
+---@return BruRequestBody|nil: the parsed body block
 function M.parse_body_block()
 	local query = vim.treesitter.query.parse("bru", "(bodies (_) @block)")
 	local body_block = find_first(query)
 	if body_block == nil then
+		return nil
+	end
+
+	local keyword_node = body_block:named_child(0)
+	if keyword_node == nil then
 		return nil
 	end
 
@@ -127,15 +148,28 @@ function M.parse_body_block()
 		return nil
 	end
 
+	---@type BruRequestBody
+	local body = {
+		type = get_node_text(keyword_node),
+		data = {},
+	}
+
 	if string.find(body_block:type(), "form") then
-		return parse_dictionary_node(content_node)
+		body.data = parse_dictionary_node(content_node)
+	else
+		body.data = parse_text_block_node(content_node)
 	end
 
-	return parse_text_block_node(content_node)
+	return body
 end
 
+---@class BruRequestAuth
+---@field type string: the type of the auth block
+---@field data table: the data of the auth block
+BruRequestAuth = {}
+
 ---Parses an auth block
----@return table|nil: the parsed auth block
+---@return BruRequestAuth|nil: the parsed auth block
 function M.parse_auth_block()
 	local query = vim.treesitter.query.parse("bru", "(auths (_) @block)")
 	local auth_block = find_first(query)
@@ -153,14 +187,17 @@ function M.parse_auth_block()
 		return nil
 	end
 
-	local dict = parse_dictionary_node(dict_node)
-	dict.auth_type = get_node_text(keyword_node)
-
-	return dict
+	return {
+		type = get_node_text(keyword_node),
+		data = parse_dictionary_node(dict_node),
+	}
 end
 
+---@alias BruRequestHeaders table
+BruRequestHeaders = {}
+
 ---Parses a headers block
----@return table|nil: the parsed headers block
+---@return BruRequestHeaders|nil: the parsed headers block
 function M.parse_headers_block()
 	local query = vim.treesitter.query.parse("bru", "(headers) @block")
 	local headers_node = find_first(query)
@@ -176,8 +213,11 @@ function M.parse_headers_block()
 	return parse_dictionary_node(dict_node)
 end
 
+---@alias BruRequestQuery table
+BruRequestQuery = {}
+
 ---Parses a query block
----@return table|nil: the parsed query block
+---@return BruRequestQuery|nil: the parsed query block
 function M.parse_query_block()
 	local query = vim.treesitter.query.parse("bru", "(query) @block")
 	local query_node = find_first(query)
@@ -193,6 +233,11 @@ function M.parse_query_block()
 	return parse_dictionary_node(dict_node)
 end
 
+---@alias BruRequestPathParams table
+BruRequestPathParams = {}
+
+---Parses a path params block
+---@return BruRequestPathParams|nil: the parsed path params block
 function M.parse_path_params_block()
 	local query = vim.treesitter.query.parse("bru", "(params (params_path) @block)")
 	local query_node = find_first(query)
@@ -208,6 +253,11 @@ function M.parse_path_params_block()
 	return parse_dictionary_node(dict_node)
 end
 
+---@alias BruRequestQueryParams table
+BruRequestQueryParams = {}
+
+---Parses a query params block
+---@return BruRequestQueryParams|nil: the parsed query params block
 function M.parse_query_params_block()
 	local query = vim.treesitter.query.parse("bru", "(params (params_query) @block)")
 	local query_node = find_first(query)
@@ -225,14 +275,13 @@ end
 
 ---An HTTP request
 ---@class BruRequest
----@field meta table: the meta block
----@field http table: the http block
----@field body string|nil: the body block
----@field form table|nil: the body form block
----@field headers table|nil: the headers block
----@field query table|nil: the query block
----@field auth table|nil: the auth block
-BrunoRequest = {}
+---@field meta BruRequestMeta: the meta block
+---@field http BruRequestHttp: the http block
+---@field body BruRequestBody|nil: the body block
+---@field headers BruRequestHeaders|nil: the headers block
+---@field query BruRequestQuery|nil: the query block
+---@field auth BruRequestAuth|nil: the auth block
+BruRequest = {}
 
 ---Parses a request
 ---@return BruRequest: the parsed request
@@ -252,10 +301,12 @@ function M.parse_request()
 	request.http = http
 
 	local body = M.parse_body_block()
-	if type(body) == "table" then
-		request.form = body
-	elseif type(body) == "string" then
-		request.body = body
+	if body ~= nil then
+		if type(body.data) == "table" then
+			request.form = body.data
+		elseif type(body.data) == "string" then
+			request.body = body.data
+		end
 	end
 
 	request.headers = M.parse_headers_block()
@@ -265,7 +316,7 @@ function M.parse_request()
 	local path_params = M.parse_path_params_block()
 	if path_params ~= nil then
 		for k, v in pairs(path_params) do
-			request.http.url = request.http.url:gsub(":" .. k, v)
+			request.http.data.url = request.http.data.url:gsub(":" .. k, v)
 		end
 	end
 

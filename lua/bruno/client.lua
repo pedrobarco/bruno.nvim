@@ -4,26 +4,30 @@ local utils = require("bruno.utils")
 
 local M = {}
 
----An HTTP request
----@class Request
----@field url string: the url to send the request to
----@field method string: the method to use
----@field headers table?: the headers to send
----@field body string?: the body to send
----@field query table?: the query to send
----@field form table?: the form to send
----@field auth table?: the auth to use
-Request = {}
-
--- curl options
--- auth = "Basic request auth, 'user:pass', or {"user", "pass"}" (string/array)
-
 ---Sends a request
----@param request Request: the request to send
+---@param request BruRequest: the request to send
+---@param environment table: the environment to use
 ---@return table: the response
-function M.request(request)
+function M.bru_request(request, environment)
 	utils.P(request)
-	return curl.request(request)
+	utils.P(environment)
+
+	local opts = {
+		url = request.http.data.url,
+		method = request.http.method,
+		headers = request.headers,
+		body = request.body.data,
+		query = request.query,
+	}
+
+	-- curl options
+	-- auth = "Basic request auth, 'user:pass', or {"user", "pass"}" (string/array)
+
+	--TODO: parse auth and configure headers
+	--TODO: parse body and configure form
+	--TODO: parse body and configure content-type header
+
+	return curl.request(opts)
 end
 
 return M

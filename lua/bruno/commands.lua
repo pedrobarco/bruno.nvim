@@ -5,21 +5,12 @@ local client = require("bruno.client")
 local utils = require("bruno.utils")
 
 local function request()
-	local raw = parser.parse_request()
+	local req = parser.parse_request()
 
-	---@type Request
-	local req = {
-		url = raw.http.url,
-		method = raw.http.method,
-		body = raw.body,
-		form = raw.form,
-		headers = raw.headers,
-		query = raw.query,
-	}
+	--TODO: pick environment file
+	local env = {}
 
-	-- TODO: parse auth block and configure headers
-
-	local res = client.request(req)
+	local res = client.bru_request(req, env)
 	utils.P(res)
 end
 
