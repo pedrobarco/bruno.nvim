@@ -2,7 +2,6 @@ local M = {}
 
 local parser = require("bruno.parser")
 local client = require("bruno.client")
-local utils = require("bruno.utils")
 
 local function request()
 	local req = parser.parse_request()
@@ -11,7 +10,7 @@ local function request()
 	local env = {}
 
 	local res = client.bru_request(req, env)
-	utils.P(res)
+	return res
 end
 
 function M.init(bufnr)

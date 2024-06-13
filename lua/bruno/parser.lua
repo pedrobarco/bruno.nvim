@@ -124,6 +124,23 @@ function M.parse_http_block()
 	return http
 end
 
+---Parses a graphql vars block
+---@return string|nil: the parsed graphql vars block
+function M.parse_gql_vars_block()
+	local query = vim.treesitter.query.parse("bru", "(bodies (body_graphql_vars) @block)")
+	local body_block = find_first(query)
+	if body_block == nil then
+		return nil
+	end
+
+	local content_node = body_block:named_child(1)
+	if content_node == nil then
+		return nil
+	end
+
+	return parse_text_block_node(content_node)
+end
+
 ---@class BruRequestBody
 ---@field type string: the content type of the body
 ---@field data string|table: the data of the body
@@ -154,10 +171,20 @@ function M.parse_body_block()
 		data = {},
 	}
 
-	if string.find(body_block:type(), "form") then
+	if string.find(body.type, "form") then
 		body.data = parse_dictionary_node(content_node)
 	else
 		body.data = parse_text_block_node(content_node)
+	end
+
+	if body.type == "body:graphql" then
+		local vars = M.parse_gql_vars_block()
+		if vars ~= nil then
+			local gql_vars = vim.fn.json_decode(vars)
+			body.data = vim.fn.json_encode({ query = body.data, variables = gql_vars })
+		else
+			body.data = vim.fn.json_encode({ query = body.data })
+		end
 	end
 
 	return body
@@ -300,15 +327,7 @@ function M.parse_request()
 	end
 	request.http = http
 
-	local body = M.parse_body_block()
-	if body ~= nil then
-		if type(body.data) == "table" then
-			request.form = body.data
-		elseif type(body.data) == "string" then
-			request.body = body.data
-		end
-	end
-
+	request.body = M.parse_body_block()
 	request.headers = M.parse_headers_block()
 	request.query = M.parse_query_block()
 	request.auth = M.parse_auth_block()
