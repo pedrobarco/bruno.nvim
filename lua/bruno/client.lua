@@ -22,19 +22,19 @@ function M.bru_request(request, environment)
 
 	--parse body and configure content-type header
 	if request.body.type == "body:json" then
-		opts.headers.content_type = "application/json"
+		opts.headers["content-type"] = "application/json"
 	elseif request.body.type == "body:text" then
-		opts.headers.content_type = "text/plain"
+		opts.headers["content-type"] = "text/plain"
 	elseif request.body.type == "body:xml" then
-		opts.headers.content_type = "application/xml"
+		opts.headers["content-type"] = "application/xml"
 	elseif request.body.type == "body:graphql" then
-		opts.headers.content_type = "application/json"
+		opts.headers["content-type"] = "application/json"
 	elseif request.body.type == "body:sparql" then
-		opts.headers.content_type = "application/sparql-results+json"
+		opts.headers["content-type"] = "application/sparql-results+json"
 	elseif request.body.type == "body:form-urlencoded" then
-		opts.headers.content_type = "application/x-www-form-urlencoded"
+		opts.headers["content-type"] = "application/x-www-form-urlencoded"
 	elseif request.body.type == "body:multipart-form" then
-		opts.headers.content_type = "multipart/form-data"
+		opts.headers["content-type"] = "multipart/form-data"
 	end
 
 	-- curl options
