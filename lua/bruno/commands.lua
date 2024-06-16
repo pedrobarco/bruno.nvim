@@ -35,20 +35,22 @@ local function get_environments(env_dir)
 	return vim.fn.glob(env_dir .. "/*.bru", false, true)
 end
 
----Prompt the user to select an option from a list
----@param prompt string The prompt message
----@param choices table The list of choices
----@return any|nil The selected choice or nil if the user cancels
-local function inputlist(prompt, choices)
+---Prompt the user to select an environment file
+---@param prompt string The prompt to display
+---@param envs table The list of environment files
+---@return string|nil The selected environment file
+local function inputenvlist(prompt, envs)
 	local inputs = { prompt }
-	for i, choice in ipairs(choices) do
+	for i, choice in ipairs(envs) do
+		-- get the name of the file and remove the path
+		choice = vim.fn.fnamemodify(choice, ":t:r")
 		table.insert(inputs, i .. ": " .. choice)
 	end
 	local choice = vim.fn.inputlist(inputs)
 	if choice == 0 then
 		return nil
 	end
-	return choices[choice]
+	return envs[choice]
 end
 
 ---Get the content of a file
@@ -78,13 +80,13 @@ local function request()
 	--find "bru.json" based on the request file path
 	local collection_root = find_collection_root(request_file)
 
-	if collection_root ~= nil then
+	if collection_root then
 		local env_dir = get_environments_root(collection_root)
 		local env_files = get_environments(env_dir)
 		local has_ui = #vim.api.nvim_list_uis() ~= 0
 		if #env_files ~= 0 and has_ui then
-			local env_file = inputlist("Environment files:", env_files)
-			if env_file ~= nil then
+			local env_file = inputenvlist("Environment files:", env_files)
+			if env_file then
 				local env_content = get_file_content(env_file)
 				env = parser.parse_env(env_content)
 			end

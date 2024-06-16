@@ -15,7 +15,7 @@ end
 ---@param key string: the key to check
 ---@return boolean: whether the key is disabled
 local function is_key_disabled(key)
-	return string.sub(key, 1, 1) == "~"
+	return key:sub(1, 1) == "~"
 end
 
 ---A bru parser
@@ -66,7 +66,7 @@ function Parser:parse_dictionary_node(node)
 	for _, pair in ipairs(node:named_children()) do
 		local key_node = pair:named_child(0)
 		local value_node = pair:named_child(1)
-		if key_node ~= nil and value_node ~= nil then
+		if key_node and value_node then
 			local key = self:get_node_text(key_node)
 			local value = self:get_node_text(value_node)
 			if not is_key_disabled(key) then
@@ -188,7 +188,7 @@ function Parser:parse_body_block()
 		data = {},
 	}
 
-	if string.find(body.type, "form") then
+	if body.type:find("form") then
 		body.data = self:parse_dictionary_node(content_node)
 	else
 		body.data = self:parse_text_block_node(content_node)
@@ -196,7 +196,7 @@ function Parser:parse_body_block()
 
 	if body.type == "body:graphql" then
 		local vars = self:parse_gql_vars_block()
-		if vars ~= nil then
+		if vars then
 			local gql_vars = vim.fn.json_decode(vars)
 			body.data = vim.fn.json_encode({ query = body.data, variables = gql_vars })
 		else
@@ -374,16 +374,16 @@ function M.parse_request(content)
 	}
 
 	local path_params = parser:parse_path_params_block()
-	if path_params ~= nil then
+	if path_params then
 		for k, v in pairs(path_params) do
 			request.http.data.url = request.http.data.url:gsub(":" .. k, v)
 		end
 	end
 
 	local query_params = parser:parse_query_params_block()
-	if query_params ~= nil then
+	if query_params then
 		for k, v in pairs(query_params) do
-			if request.query[k] ~= nil then
+			if request.query[k] then
 				request.query[k] = request.query[k]:gsub(":" .. k, v)
 			end
 		end

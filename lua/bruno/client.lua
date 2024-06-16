@@ -16,7 +16,6 @@ local function substitute_var(var, target)
 	for k, v in pairs(target) do
 		new_target[k] = v:gsub("{{" .. var.name .. "}}", var.value)
 	end
-
 	return new_target
 end
 
