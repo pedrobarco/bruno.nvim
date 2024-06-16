@@ -55,14 +55,15 @@ local function get_file_content(path)
 end
 
 ---Run the bruno request
+---@param opts table: the options for the request
 ---@return table: the response of the request
-local function request()
+local function request(opts)
 	local request_file = vim.api.nvim_buf_get_name(0)
 	local request_content = get_file_content(request_file)
 
 	local req = parser.parse_request(request_content)
 	local env = {
-		vars = nil,
+		vars = {},
 	}
 
 	local collection_root = find_collection_root(request_file)
@@ -78,7 +79,14 @@ local function request()
 		end
 	end
 
-	--TODO: use args for variable overrides (baseUrl="https://example.com")
+	-- use args for variable overrides (baseUrl="https://example.com")
+	local vars = vim.fn.split(opts.args, " ")
+	for _, arg in ipairs(vars) do
+		local parts = vim.fn.split(arg, "=")
+		if #parts == 2 then
+			env.vars[parts[1]] = parts[2]
+		end
+	end
 
 	local res = client.bru_request(req, env)
 	return res
@@ -87,7 +95,10 @@ end
 ---Initialize the commands for the given buffer
 ---@param bufnr number: the buffer number
 function M.init(bufnr)
-	vim.api.nvim_buf_create_user_command(bufnr, "BrunoRun", request, { desc = "Run bruno request" })
+	vim.api.nvim_buf_create_user_command(bufnr, "BrunoRun", request, {
+		nargs = "*",
+		desc = "Run bruno request",
+	})
 end
 
 return M
