@@ -4,9 +4,25 @@ local utils = require("bruno.utils")
 
 local M = {}
 
+---Substitute a variable in a target
+---@param var table: the variable to substitute
+---@param target string|table: the target to substitute the variable in
+local function substitute_var(var, target)
+	if type(target) == "string" then
+		return target:gsub("{{" .. var.name .. "}}", var.value)
+	end
+
+	local new_target = {}
+	for k, v in pairs(target) do
+		new_target[k] = v:gsub("{{" .. var.name .. "}}", var.value)
+	end
+
+	return new_target
+end
+
 ---Sends a request
 ---@param request BruRequest: the request to send
----@param environment table: the environment to use
+---@param environment BruEnv: the environment to use
 ---@return table: the response
 function M.bru_request(request, environment)
 	print("bru request")
@@ -16,8 +32,8 @@ function M.bru_request(request, environment)
 		url = request.http.data.url,
 		method = request.http.method,
 		headers = request.headers or {},
-		body = request.body.data,
-		query = request.query,
+		body = request.body.data or {},
+		query = request.query or {},
 	}
 
 	--parse body and configure content-type header
@@ -35,6 +51,17 @@ function M.bru_request(request, environment)
 		opts.headers["content-type"] = "application/x-www-form-urlencoded"
 	elseif request.body.type == "body:multipart-form" then
 		opts.headers["content-type"] = "multipart/form-data"
+	end
+
+	-- parse env and substitute variables
+	if environment.vars then
+		for k, v in pairs(environment.vars) do
+			local var = { name = k, value = v }
+			opts.url = substitute_var(var, opts.url)
+			opts.body = substitute_var(var, opts.body)
+			opts.headers = substitute_var(var, opts.headers)
+			opts.query = substitute_var(var, opts.query)
+		end
 	end
 
 	-- curl options

@@ -71,7 +71,9 @@ local function request()
 	local request_content = get_file_content(request_file)
 
 	local req = parser.parse_request(request_content)
-	local env = {}
+	local env = {
+		vars = nil,
+	}
 
 	--find "bru.json" based on the request file path
 	local collection_root = find_collection_root(request_file)
