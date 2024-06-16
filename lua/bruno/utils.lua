@@ -8,12 +8,11 @@ end
 
 ---Wrapper around vim.treesitter.get_node_text
 ---@param node TSNode
----@return string
-M.T = function(node)
-	local text = vim.treesitter.get_node_text(node, 0)
-	-- TODO: comment this out
+---@param content string?
+M.T = function(node, content)
+	local source = content or 0
+	local text = vim.treesitter.get_node_text(node, source)
 	M.P(text)
-	return text
 end
 
 return M

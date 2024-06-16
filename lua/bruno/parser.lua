@@ -2,19 +2,13 @@ local M = {}
 
 local lang = "bru"
 
----Parses the content of a buffer
+---Parses the content as a tree and returns the root node
 ---@param content string: the content to parse
----@return TSNode: the parsed content
+---@return TSNode: the root node of the parsed tree
 local function parse_content(content)
 	local parser = vim.treesitter.get_string_parser(content, lang)
-	return parser:parse()[1]:root()
-end
-
----Returns the text of a node
----@param node TSNode: the node to get the text for
----@return string: the text of the node
-local function get_node_text(node)
-	return vim.treesitter.get_node_text(node, 0)
+	local tree = parser:parse()[1]
+	return tree:root()
 end
 
 ---Checks if a key is disabled
@@ -24,14 +18,39 @@ local function is_key_disabled(key)
 	return string.sub(key, 1, 1) == "~"
 end
 
+---A bru parser
+---@class Parser
+---@field content string: the content to parse
+---@field lang string: the language to parse
+---@field root TSNode: the root node of the parsed tree
+Parser = {}
+Parser.__index = Parser
+
+---Creates a new parser
+---@param content string: the content to parse
+---@return Parser: the new parser
+function Parser:new(content)
+	local parser = setmetatable({}, self)
+
+	parser.content = content
+	parser.lang = lang
+	parser.root = parse_content(content)
+
+	return parser
+end
+
+---Returns the text of a node
+---@param node TSNode: the node to get the text for
+---@return string: the text of the node
+function Parser:get_node_text(node)
+	return vim.treesitter.get_node_text(node, self.content)
+end
+
 ---Finds the first node that matches the query
----@param content string: the content to search in
----@param node TSNode: the node to start the search from
 ---@param query vim.treesitter.Query: the query to run
 ---@return TSNode|nil: the first node that matches the query
-local function find_first(content, node, query)
-	-- TODO: check if iter_matches returns a 1-based index
-	for _, matches in query:iter_matches(node, content) do
+function Parser:find_first(query)
+	for _, matches in query:iter_matches(self.root, self.content) do
 		for _, match in ipairs(matches) do
 			return match
 		end
@@ -42,14 +61,14 @@ end
 ---Parses a dictionary node into a lua table
 ---@param node TSNode: the dictionary node to parse
 ---@return table: the parsed dictionary
-local function parse_dictionary_node(node)
+function Parser:parse_dictionary_node(node)
 	local dict = {}
 	for _, pair in ipairs(node:named_children()) do
 		local key_node = pair:named_child(0)
 		local value_node = pair:named_child(1)
 		if key_node ~= nil and value_node ~= nil then
-			local key = get_node_text(key_node)
-			local value = get_node_text(value_node)
+			local key = self:get_node_text(key_node)
+			local value = self:get_node_text(value_node)
 			if not is_key_disabled(key) then
 				dict[key] = value
 			end
@@ -61,25 +80,22 @@ end
 ---Parses a text block node
 ---@param node TSNode: the text block node to parse
 ---@return string: the parsed text block
-local function parse_text_block_node(node)
+function Parser:parse_text_block_node(node)
 	local text_node = node:named_child(0)
 	if text_node == nil then
 		return ""
 	end
-
-	return get_node_text(text_node)
+	return self:get_node_text(text_node)
 end
 
 ---@alias BruRequestMeta table
 BruRequestMeta = {}
 
 ---Parses a meta block
----@param content string: the content to parse the meta block from
----@param tree TSNode: the tree to parse the meta block from
 ---@return BruRequestMeta|nil: the parsed meta block
-function M.parse_meta_block(content, tree)
+function Parser:parse_meta_block()
 	local query = vim.treesitter.query.parse(lang, "(meta) @block")
-	local meta_node = find_first(content, tree, query)
+	local meta_node = self:find_first(query)
 	if meta_node == nil then
 		return nil
 	end
@@ -89,7 +105,7 @@ function M.parse_meta_block(content, tree)
 		return nil
 	end
 
-	return parse_dictionary_node(dict_node)
+	return self:parse_dictionary_node(dict_node)
 end
 
 ---@class BruRequestHttp
@@ -98,12 +114,10 @@ end
 BruRequestHttp = {}
 
 ---Parses an http block
----@param content string: the content to parse the http block from
----@param tree TSNode: the tree to parse the http block from
 ---@return BruRequestHttp|nil: the parsed http block
-function M.parse_http_block(content, tree)
+function Parser:parse_http_block()
 	local query = vim.treesitter.query.parse(lang, "(http) @block")
-	local http_node = find_first(content, tree, query)
+	local http_node = self:find_first(query)
 	if http_node == nil then
 		return nil
 	end
@@ -120,20 +134,18 @@ function M.parse_http_block(content, tree)
 
 	---@type BruRequestHttp
 	local http = {
-		method = get_node_text(method_node),
-		data = parse_dictionary_node(dict_node),
+		method = self:get_node_text(method_node),
+		data = self:parse_dictionary_node(dict_node),
 	}
 
 	return http
 end
 
 ---Parses a graphql vars block
----@param content string: the content to parse the graphql vars block from
----@param tree TSNode: the tree to parse the graphql vars block from
 ---@return string|nil: the parsed graphql vars block
-function M.parse_gql_vars_block(content, tree)
+function Parser:parse_gql_vars_block()
 	local query = vim.treesitter.query.parse(lang, "(bodies (body_graphql_vars) @block)")
-	local body_block = find_first(content, tree, query)
+	local body_block = self:find_first(query)
 	if body_block == nil then
 		return nil
 	end
@@ -143,7 +155,7 @@ function M.parse_gql_vars_block(content, tree)
 		return nil
 	end
 
-	return parse_text_block_node(content_node)
+	return self:parse_text_block_node(content_node)
 end
 
 ---@class BruRequestBody
@@ -152,12 +164,10 @@ end
 BruRequestBody = {}
 
 ---Parses a body block
----@param content string: the content to parse the body block from
----@param tree TSNode: the tree to parse the body block from
 ---@return BruRequestBody|nil: the parsed body block
-function M.parse_body_block(content, tree)
+function Parser:parse_body_block()
 	local query = vim.treesitter.query.parse(lang, "(bodies (_) @block)")
-	local body_block = find_first(content, tree, query)
+	local body_block = self:find_first(query)
 	if body_block == nil then
 		return nil
 	end
@@ -174,18 +184,18 @@ function M.parse_body_block(content, tree)
 
 	---@type BruRequestBody
 	local body = {
-		type = get_node_text(keyword_node),
+		type = self:get_node_text(keyword_node),
 		data = {},
 	}
 
 	if string.find(body.type, "form") then
-		body.data = parse_dictionary_node(content_node)
+		body.data = self:parse_dictionary_node(content_node)
 	else
-		body.data = parse_text_block_node(content_node)
+		body.data = self:parse_text_block_node(content_node)
 	end
 
 	if body.type == "body:graphql" then
-		local vars = M.parse_gql_vars_block(content, tree)
+		local vars = self:parse_gql_vars_block()
 		if vars ~= nil then
 			local gql_vars = vim.fn.json_decode(vars)
 			body.data = vim.fn.json_encode({ query = body.data, variables = gql_vars })
@@ -203,12 +213,10 @@ end
 BruRequestAuth = {}
 
 ---Parses an auth block
----@param content string: the content to parse the auth block from
----@param tree TSNode: the tree to parse the auth block from
 ---@return BruRequestAuth|nil: the parsed auth block
-function M.parse_auth_block(content, tree)
+function Parser:parse_auth_block()
 	local query = vim.treesitter.query.parse(lang, "(auths (_) @block)")
-	local auth_block = find_first(content, tree, query)
+	local auth_block = self:find_first(query)
 	if auth_block == nil then
 		return nil
 	end
@@ -224,8 +232,8 @@ function M.parse_auth_block(content, tree)
 	end
 
 	return {
-		type = get_node_text(keyword_node),
-		data = parse_dictionary_node(dict_node),
+		type = self:get_node_text(keyword_node),
+		data = self:parse_dictionary_node(dict_node),
 	}
 end
 
@@ -233,12 +241,10 @@ end
 BruRequestHeaders = {}
 
 ---Parses a headers block
----@param content string: the content to parse the headers block from
----@param tree TSNode: the tree to parse the headers block from
 ---@return BruRequestHeaders|nil: the parsed headers block
-function M.parse_headers_block(content, tree)
+function Parser:parse_headers_block()
 	local query = vim.treesitter.query.parse(lang, "(headers) @block")
-	local headers_node = find_first(content, tree, query)
+	local headers_node = self:find_first(query)
 	if headers_node == nil then
 		return nil
 	end
@@ -248,19 +254,17 @@ function M.parse_headers_block(content, tree)
 		return nil
 	end
 
-	return parse_dictionary_node(dict_node)
+	return self:parse_dictionary_node(dict_node)
 end
 
 ---@alias BruRequestQuery table
 BruRequestQuery = {}
 
 ---Parses a query block
----@param content string: the content to parse the query block from
----@param tree TSNode: the tree to parse the query block from
 ---@return BruRequestQuery|nil: the parsed query block
-function M.parse_query_block(content, tree)
+function Parser:parse_query_block()
 	local query = vim.treesitter.query.parse(lang, "(query) @block")
-	local query_node = find_first(content, tree, query)
+	local query_node = self:find_first(query)
 	if query_node == nil then
 		return nil
 	end
@@ -270,19 +274,17 @@ function M.parse_query_block(content, tree)
 		return nil
 	end
 
-	return parse_dictionary_node(dict_node)
+	return self:parse_dictionary_node(dict_node)
 end
 
 ---@alias BruRequestPathParams table
 BruRequestPathParams = {}
 
 ---Parses a path params block
----@param content string: the content to parse the path params block from
----@param tree TSNode: the tree to parse the path params block from
 ---@return BruRequestPathParams|nil: the parsed path params block
-function M.parse_path_params_block(content, tree)
+function Parser:parse_path_params_block()
 	local query = vim.treesitter.query.parse(lang, "(params (params_path) @block)")
-	local query_node = find_first(content, tree, query)
+	local query_node = self:find_first(query)
 	if query_node == nil then
 		return nil
 	end
@@ -292,19 +294,17 @@ function M.parse_path_params_block(content, tree)
 		return nil
 	end
 
-	return parse_dictionary_node(dict_node)
+	return self:parse_dictionary_node(dict_node)
 end
 
 ---@alias BruRequestQueryParams table
 BruRequestQueryParams = {}
 
 ---Parses a query params block
----@param content string: the content to parse the query params block from
----@param tree TSNode: the tree to parse the query params block from
 ---@return BruRequestQueryParams|nil: the parsed query params block
-function M.parse_query_params_block(content, tree)
+function Parser:parse_query_params_block()
 	local query = vim.treesitter.query.parse(lang, "(params (params_query) @block)")
-	local query_node = find_first(content, tree, query)
+	local query_node = self:find_first(query)
 	if query_node == nil then
 		return nil
 	end
@@ -314,7 +314,27 @@ function M.parse_query_params_block(content, tree)
 		return nil
 	end
 
-	return parse_dictionary_node(dict_node)
+	return self:parse_dictionary_node(dict_node)
+end
+
+---@alias BruEnvVars table
+BruEnvVars = {}
+
+---Parses a vars block
+---@return BruEnvVars|nil: the parsed vars block
+function Parser:parse_vars()
+	local query = vim.treesitter.query.parse(lang, "(env_vars) @block")
+	local env_vars_node = self:find_first(query)
+	if env_vars_node == nil then
+		return nil
+	end
+
+	local dict_node = env_vars_node:named_child(1)
+	if dict_node == nil then
+		return nil
+	end
+
+	return self:parse_dictionary_node(dict_node)
 end
 
 ---An HTTP request
@@ -331,14 +351,14 @@ BruRequest = {}
 ---@param content string: the content to parse
 ---@return BruRequest: the parsed request
 function M.parse_request(content)
-	local tree = parse_content(content)
+	local parser = Parser:new(content)
 
-	local meta = M.parse_meta_block(content, tree)
+	local meta = parser:parse_meta_block()
 	if meta == nil then
 		error("No meta block found")
 	end
 
-	local http = M.parse_http_block(content, tree)
+	local http = parser:parse_http_block()
 	if http == nil then
 		error("No http block found")
 	end
@@ -347,20 +367,20 @@ function M.parse_request(content)
 	local request = {
 		meta = meta,
 		http = http,
-		body = M.parse_body_block(content, tree),
-		headers = M.parse_headers_block(content, tree),
-		query = M.parse_query_block(content, tree),
-		auth = M.parse_auth_block(content, tree),
+		body = parser:parse_body_block(),
+		headers = parser:parse_headers_block(),
+		query = parser:parse_query_block(),
+		auth = parser:parse_auth_block(),
 	}
 
-	local path_params = M.parse_path_params_block(content, tree)
+	local path_params = parser:parse_path_params_block()
 	if path_params ~= nil then
 		for k, v in pairs(path_params) do
 			request.http.data.url = request.http.data.url:gsub(":" .. k, v)
 		end
 	end
 
-	local query_params = M.parse_query_params_block(content, tree)
+	local query_params = parser:parse_query_params_block()
 	if query_params ~= nil then
 		for k, v in pairs(query_params) do
 			if request.query[k] ~= nil then
@@ -370,6 +390,25 @@ function M.parse_request(content)
 	end
 
 	return request
+end
+
+---An environment
+---@class BruEnv
+---@field vars BruEnvVars|nil:
+BruEnv = {}
+
+---Parses an environment
+---@param content string: the content to parse
+---@return BruEnv: the parsed environment
+function M.parse_env(content)
+	local parser = Parser:new(content)
+
+	---@type BruEnv
+	local env = {
+		vars = parser:parse_vars(),
+	}
+
+	return env
 end
 
 return M
