@@ -124,7 +124,7 @@ function M.bru_share(request, environment)
 	local url = opts.url
 
 	-- parse query
-	if opts.query then
+	if #opts.query > 0 then
 		url = url .. "?"
 		for k, v in pairs(opts.query) do
 			url = url .. k .. "=" .. v
