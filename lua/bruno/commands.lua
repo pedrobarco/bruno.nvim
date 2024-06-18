@@ -54,20 +54,25 @@ local function get_file_content(path)
 	return content
 end
 
----Run the bruno request
----@param opts table: the options for the request
----@return table: the response of the request
-local function request(opts)
-	local request_file = vim.api.nvim_buf_get_name(0)
+---Build the request from the given file
+---@param request_file string: the path of the request file
+---@return BruRequest: the request
+local function build_request(request_file)
 	local request_content = get_file_content(request_file)
-
 	local req = parser.parse_request(request_content)
+	return req
+end
+
+---Build the environment from the given file
+---@param request_file string: the path of the request file
+---@param override_vars string: the variables to override (e.g. "baseUrl=https://example.com")
+---@return BruEnv: the environment
+local function build_environment(request_file, override_vars)
 	local env = {
 		vars = {},
 	}
 
 	local collection_root = find_collection_root(request_file)
-
 	if collection_root then
 		local has_ui = #vim.api.nvim_list_uis() ~= 0
 		if has_ui then
@@ -79,8 +84,7 @@ local function request(opts)
 		end
 	end
 
-	-- use args for variable overrides (baseUrl="https://example.com")
-	local vars = vim.fn.split(opts.args, " ")
+	local vars = vim.fn.split(override_vars, " ")
 	for _, arg in ipairs(vars) do
 		local parts = vim.fn.split(arg, "=")
 		if #parts == 2 then
@@ -88,7 +92,32 @@ local function request(opts)
 		end
 	end
 
+	return env
+end
+
+---Run the bruno request
+---@param opts table: the options for the request
+---@return table: the response of the request
+local function request(opts)
+	local request_file = vim.api.nvim_buf_get_name(0)
+
+	local req = build_request(request_file)
+	local env = build_environment(request_file, opts.args)
+
 	local res = client.bru_request(req, env)
+	return res
+end
+
+---Share the bruno request
+---@param opts table: the options for the request
+---@return table: the response of the request
+local function share(opts)
+	local request_file = vim.api.nvim_buf_get_name(0)
+
+	local req = build_request(request_file)
+	local env = build_environment(request_file, opts.args)
+
+	local res = client.bru_share(req, env)
 	return res
 end
 
@@ -98,6 +127,10 @@ function M.init(bufnr)
 	vim.api.nvim_buf_create_user_command(bufnr, "BrunoRun", request, {
 		nargs = "*",
 		desc = "Run bruno request",
+	})
+	vim.api.nvim_buf_create_user_command(bufnr, "BrunoShare", share, {
+		nargs = "*",
+		desc = "Share bruno request",
 	})
 end
 
