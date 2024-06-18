@@ -78,9 +78,12 @@ local function build_curl_opts(request, environment)
 		for k, v in pairs(environment.vars) do
 			local var = { name = k, value = v }
 			opts.url = substitute_var(var, opts.url)
-			opts.body = substitute_var(var, opts.body)
 			opts.headers = substitute_table(var, opts.headers)
 			opts.query = substitute_table(var, opts.query)
+
+			if opts.body then
+				opts.body = substitute_var(var, opts.body)
+			end
 		end
 	end
 
