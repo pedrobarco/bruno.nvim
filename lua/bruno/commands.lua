@@ -2,6 +2,8 @@ local M = {}
 
 local parser = require("bruno.parser")
 local client = require("bruno.client")
+local ui = require("bruno.ui")
+local utils = require("bruno.utils")
 
 ---Find the collection root for the given request path
 ---@param request_path string: the path of the bru request file
@@ -74,8 +76,7 @@ local function build_environment(request_file, override_vars)
 
 	local collection_root = find_collection_root(request_file)
 	if collection_root then
-		local has_ui = #vim.api.nvim_list_uis() ~= 0
-		if has_ui then
+		if utils.has_ui() then
 			local env_file = select_env(collection_root)
 			if env_file then
 				local env_content = get_file_content(env_file)
@@ -100,25 +101,23 @@ end
 ---@return table: the response of the request
 local function request(opts)
 	local request_file = vim.api.nvim_buf_get_name(0)
-
 	local req = build_request(request_file)
 	local env = build_environment(request_file, opts.args)
-
 	local res = client.bru_request(req, env)
+	ui.display_result(res)
 	return res
 end
 
----Share the bruno request
+---Share the bruno request via curl
 ---@param opts table: the options for the request
----@return table: the response of the request
+---@return string: the command to run the request via curl
 local function share(opts)
 	local request_file = vim.api.nvim_buf_get_name(0)
-
 	local req = build_request(request_file)
 	local env = build_environment(request_file, opts.args)
-
-	local res = client.bru_share(req, env)
-	return res
+	local cmd = client.bru_share(req, env)
+	ui.display_cmd(cmd)
+	return cmd
 end
 
 ---Initialize the commands for the given buffer

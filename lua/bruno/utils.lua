@@ -15,4 +15,10 @@ M.T = function(node, content)
 	M.P(text)
 end
 
+---Check if the current session has a UI
+---@return boolean
+M.has_ui = function()
+	return #vim.api.nvim_list_uis() ~= 0
+end
+
 return M

@@ -38,8 +38,8 @@ end
 ---@param environment BruEnv: the environment to use
 ---@return CurlOpts: the options for the curl request
 local function build_curl_opts(request, environment)
-	print("bru request")
-	utils.P({ request = request, environment = environment })
+	-- print("bru request")
+	-- utils.P({ request = request, environment = environment })
 
 	---@type CurlOpts
 	local opts = {
@@ -87,9 +87,6 @@ local function build_curl_opts(request, environment)
 		end
 	end
 
-	print("curl options")
-	utils.P(opts)
-
 	-- curl options
 	-- auth = "Basic request auth, 'user:pass', or {"user", "pass"}" (string/array)
 
@@ -108,15 +105,13 @@ function M.bru_request(request, environment)
 
 	local res = curl.request(opts)
 
-	print("response")
-	utils.P(res)
-
 	return res
 end
 
 ---Shares a curl request
 ---@param request BruRequest: the request to share
 ---@param environment BruEnv: the environment to use
+---@return string: the command to run the request via curl
 function M.bru_share(request, environment)
 	local opts = build_curl_opts(request, environment)
 
@@ -144,9 +139,6 @@ function M.bru_share(request, environment)
 	if opts.body then
 		cmd = cmd .. " -d '" .. opts.body .. "'"
 	end
-
-	print("curl command")
-	print(cmd)
 
 	return cmd
 end
