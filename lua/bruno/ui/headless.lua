@@ -2,7 +2,7 @@ local M = {}
 
 local utils = require("bruno.utils")
 
----Displays result in headless mode
+---Displays the result in headless mode
 ---@param result table: the result to draw
 function M.display_result(result)
 	utils.P(result)
