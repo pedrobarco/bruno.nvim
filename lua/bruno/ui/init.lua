@@ -8,7 +8,7 @@ function M.display_result(result)
 	if utils.has_ui() then
 		window.display_result(result)
 	else
-		headless.draw(result)
+		headless.display_result(result)
 	end
 end
 
