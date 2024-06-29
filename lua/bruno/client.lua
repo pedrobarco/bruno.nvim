@@ -1,7 +1,5 @@
 local curl = require("plenary.curl")
 
-local utils = require("bruno.utils")
-
 local M = {}
 
 ---@class CurlOpts
@@ -11,6 +9,12 @@ local M = {}
 ---@field body string|nil
 ---@field query table
 CurlOpts = {}
+
+---@class CurlResponse
+---@field status number
+---@field body string
+---@field headers table
+CurlResponse = {}
 
 ---Substitute a variable in a target
 ---@param var table: the variable to substitute
@@ -99,12 +103,11 @@ end
 ---Sends a request
 ---@param request BruRequest: the request to send
 ---@param environment BruEnv: the environment to use
----@return table: the response
+---@return CurlResponse: the response
 function M.bru_request(request, environment)
 	local opts = build_curl_opts(request, environment)
-
 	local res = curl.request(opts)
-
+	---@type CurlResponse
 	return res
 end
 
@@ -114,7 +117,6 @@ end
 ---@return string: the command to run the request via curl
 function M.bru_share(request, environment)
 	local opts = build_curl_opts(request, environment)
-
 	local cmd = "curl -X " .. opts.method:upper()
 	local url = opts.url
 

@@ -3,7 +3,7 @@ local M = {}
 local utils = require("bruno.utils")
 
 ---Displays the result in headless mode
----@param result table: the result to draw
+---@param result CurlResponse: the result to draw
 function M.display_result(result)
 	utils.P(result)
 end
