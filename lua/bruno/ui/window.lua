@@ -19,14 +19,18 @@ function M.display_result(result)
 	local buf = find_buf()
 	local content = {}
 
-	for line in vim.inspect(result):gmatch("[^\r\n]+") do
+	table.insert(content, "HTTP " .. result.status)
+
+	for _, v in ipairs(result.headers) do
+		table.insert(content, v)
+	end
+
+	for line in vim.inspect(result.body):gmatch("[^\r\n]+") do
 		table.insert(content, line)
 	end
 
 	buf:write(content)
 	buf:show()
-	-- local bufnr = rest_ui.get_or_create_buf()
-	-- rest_ui.write_res(bufnr, result)
 end
 
 ---Display the command

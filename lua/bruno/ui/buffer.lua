@@ -1,7 +1,10 @@
+---@class Buffer
 local Buffer = {}
 Buffer.__index = Buffer
 Buffer.name = "bruno_nvim_response"
 
+---Create a new buffer
+---@return Buffer: the buffer
 function Buffer:new()
 	setmetatable({}, self)
 
@@ -18,6 +21,9 @@ function Buffer:new()
 	return self
 end
 
+---Create a buffer from a buffer number
+---@param bufnr number: the buffer number
+---@return Buffer: the buffer
 function Buffer:from_bufnr(bufnr)
 	setmetatable({}, self)
 
@@ -27,6 +33,8 @@ function Buffer:from_bufnr(bufnr)
 	return self
 end
 
+---Write content to the buffer
+---@param content string[]: the content to write
 function Buffer:write(content)
 	local opts = { buf = self.number }
 	vim.api.nvim_set_option_value("modifiable", true, opts)
@@ -34,10 +42,12 @@ function Buffer:write(content)
 	vim.api.nvim_set_option_value("modifiable", false, opts)
 end
 
+---Clear the buffer
 function Buffer:clear()
 	Buffer:write({})
 end
 
+---Show the buffer
 function Buffer:show()
 	vim.cmd("vertical split")
 	vim.cmd("wincmd r")
