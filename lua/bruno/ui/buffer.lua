@@ -49,9 +49,24 @@ end
 
 ---Show the buffer
 function Buffer:show()
+	if self:is_visible() then
+		return
+	end
+
 	vim.cmd("vertical split")
 	vim.cmd("wincmd r")
 	vim.api.nvim_win_set_buf(0, self.number)
+end
+
+---Check if the buffer is visible
+---@return boolean: true if the buffer is visible
+function Buffer:is_visible()
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		if vim.api.nvim_win_get_buf(win) == self.number then
+			return true
+		end
+	end
+	return false
 end
 
 return Buffer
