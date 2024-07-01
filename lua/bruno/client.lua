@@ -119,6 +119,7 @@ function M.bru_share(request, environment)
 	local opts = build_curl_opts(request, environment)
 	local cmd = "curl -X " .. opts.method:upper()
 	local url = opts.url
+	local splitter = " \\\n"
 
 	-- parse query
 	if #opts.query > 0 then
@@ -134,12 +135,16 @@ function M.bru_share(request, environment)
 
 	-- parse headers
 	for k, v in pairs(opts.headers) do
-		cmd = cmd .. " -H '" .. k .. ": " .. v .. "'"
+		cmd = cmd .. splitter .. "-H '" .. k .. ": " .. v .. "'"
 	end
 
 	-- parse body
 	if opts.body then
-		cmd = cmd .. " -d '" .. opts.body .. "'"
+		cmd = cmd .. splitter .. "--data-binary @- << EOF\n"
+		for line in opts.body:gmatch("[^\r\n]+") do
+			cmd = cmd .. line .. "\n"
+		end
+		cmd = cmd .. "EOF"
 	end
 
 	return cmd

@@ -25,7 +25,7 @@ function M.display_result(result)
 		table.insert(content, v)
 	end
 
-	for line in vim.inspect(result.body):gmatch("[^\r\n]+") do
+	for line in result.body:gmatch("[^\r\n]+") do
 		table.insert(content, line)
 	end
 
@@ -39,7 +39,7 @@ function M.display_cmd(cmd)
 	local buf = find_buf()
 	local content = {}
 
-	for line in vim.inspect(cmd):gmatch("[^\r\n]+") do
+	for line in cmd:gmatch("[^\r\n]+") do
 		table.insert(content, line)
 	end
 
